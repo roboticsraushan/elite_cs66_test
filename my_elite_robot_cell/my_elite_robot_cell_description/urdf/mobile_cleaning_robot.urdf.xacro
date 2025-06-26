@@ -1,0 +1,254 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="mobile_cleaning_robot">
+
+  <!-- Import CS robot -->
+  <xacro:include filename="$(find eli_cs_robot_description)/urdf/cs.urdf.xacro"/>
+
+  <!-- CS robot arguments -->
+  <xacro:arg name="sim_ignition" default="true"/>
+  <xacro:arg name="use_fake_hardware" default="true"/>
+  <xacro:arg name="fake_sensor_commands" default="true"/>
+  <xacro:arg name="headless_mode" default="false"/>
+  <xacro:arg name="robot_ip" default="0.0.0.0"/>
+
+  <!-- Robot Properties -->
+  <xacro:property name="base_width" value="0.6"/>
+  <xacro:property name="base_length" value="0.8"/>
+  <xacro:property name="base_height" value="0.3"/>
+  <xacro:property name="base_mass" value="50.0"/>
+  
+  <xacro:property name="wheel_radius" value="0.1"/>
+  <xacro:property name="wheel_length" value="0.05"/>
+  <xacro:property name="wheel_mass" value="2.0"/>
+  
+  <xacro:property name="mount_radius" value="0.1"/>
+  <xacro:property name="mount_height" value="0.2"/>
+  <xacro:property name="mount_mass" value="5.0"/>
+
+  <!-- Base Link -->
+  <link name="base_footprint"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <mass value="${base_mass}"/>
+      <inertia ixx="${base_mass * (base_width * base_width + base_height * base_height) / 12.0}"
+               ixy="0.0" ixz="0.0"
+               iyy="${base_mass * (base_length * base_length + base_height * base_height) / 12.0}"
+               iyz="0.0"
+               izz="${base_mass * (base_length * base_length + base_width * base_width) / 12.0}"/>
+    </inertial>
+  </link>
+
+  <!-- Wheels -->
+  <xacro:macro name="wheel" params="prefix x_offset y_offset">
+    <link name="${prefix}_wheel_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0.1 0.1 0.1 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <mass value="${wheel_mass}"/>
+        <inertia ixx="${wheel_mass * (3 * wheel_radius * wheel_radius + wheel_length * wheel_length) / 12.0}"
+                 ixy="0.0" ixz="0.0"
+                 iyy="${wheel_mass * (3 * wheel_radius * wheel_radius + wheel_length * wheel_length) / 12.0}"
+                 iyz="0.0"
+                 izz="${wheel_mass * wheel_radius * wheel_radius / 2.0}"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="${x_offset} ${y_offset} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <!-- Transmission for ros2_control -->
+    <transmission name="${prefix}_wheel_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}_wheel_motor">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+  </xacro:macro>
+
+  <!-- Add the wheels -->
+  <xacro:wheel prefix="front_left" x_offset="${base_length/4}" y_offset="${base_width/2 + wheel_length/2}"/>
+  <xacro:wheel prefix="front_right" x_offset="${base_length/4}" y_offset="-${base_width/2 + wheel_length/2}"/>
+  <xacro:wheel prefix="rear_left" x_offset="-${base_length/4}" y_offset="${base_width/2 + wheel_length/2}"/>
+  <xacro:wheel prefix="rear_right" x_offset="-${base_length/4}" y_offset="-${base_width/2 + wheel_length/2}"/>
+
+  <!-- Mount for CS robot -->
+  <link name="mount_link">
+    <visual>
+      <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mount_radius}" length="${mount_height}"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mount_radius}" length="${mount_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+      <mass value="${mount_mass}"/>
+      <inertia ixx="${mount_mass * (3 * mount_radius * mount_radius + mount_height * mount_height) / 12.0}"
+               ixy="0.0" ixz="0.0"
+               iyy="${mount_mass * (3 * mount_radius * mount_radius + mount_height * mount_height) / 12.0}"
+               iyz="0.0"
+               izz="${mount_mass * mount_radius * mount_radius / 2.0}"/>
+    </inertial>
+  </link>
+
+  <joint name="mount_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="mount_link"/>
+    <origin xyz="0 0 ${base_height}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Attach CS robot to mount -->
+  <joint name="robot_mount_joint" type="fixed">
+    <parent link="mount_link"/>
+    <child link="cs_base_link"/>
+    <origin xyz="0 0 ${mount_height}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Add the CS robot -->
+  <xacro:cs_robot 
+    name="cs" 
+    tf_prefix="cs_"
+    parent="mount_link"
+    joint_limits_parameters_file="$(find eli_cs_robot_description)/config/cs66/joint_limits.yaml"
+    kinematics_parameters_file="$(find eli_cs_robot_description)/config/cs66/default_kinematics.yaml"
+    physical_parameters_file="$(find eli_cs_robot_description)/config/cs66/physical_parameters.yaml"
+    visual_parameters_file="$(find eli_cs_robot_description)/config/cs66/visual_parameters.yaml"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    fake_sensor_commands="$(arg fake_sensor_commands)"
+    sim_ignition="$(arg sim_ignition)"
+    sim_gazebo="false"
+    headless_mode="$(arg headless_mode)"
+    robot_ip="$(arg robot_ip)">
+    <origin xyz="0 0 ${mount_height}" rpy="0 0 0"/>
+  </xacro:cs_robot>
+
+  <!-- Gazebo plugins -->
+  <gazebo>
+    <plugin filename="libign_ros2_control-system.so" name="ign_ros2_control::IgnitionROS2ControlPlugin">
+      <parameters>$(find my_elite_robot_cell_control)/config/mobile_base_controllers.yaml</parameters>
+      <robot_param>robot_description</robot_param>
+      <robot_param_node>robot_state_publisher</robot_param_node>
+    </plugin>
+  </gazebo>
+
+  <!-- Gazebo colors -->
+  <gazebo reference="base_link">
+    <material>Gazebo/Grey</material>
+    <visual>
+      <material>
+        <ambient>0.7 0.7 0.7 1.0</ambient>
+        <diffuse>0.7 0.7 0.7 1.0</diffuse>
+        <specular>0.1 0.1 0.1 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+  <gazebo reference="mount_link">
+    <material>Gazebo/Grey</material>
+    <visual>
+      <material>
+        <ambient>0.7 0.7 0.7 1.0</ambient>
+        <diffuse>0.7 0.7 0.7 1.0</diffuse>
+        <specular>0.1 0.1 0.1 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+  <gazebo reference="front_left_wheel_link">
+    <material>Gazebo/Black</material>
+    <visual>
+      <material>
+        <ambient>0.1 0.1 0.1 1.0</ambient>
+        <diffuse>0.1 0.1 0.1 1.0</diffuse>
+        <specular>0.01 0.01 0.01 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+  <gazebo reference="front_right_wheel_link">
+    <material>Gazebo/Black</material>
+    <visual>
+      <material>
+        <ambient>0.1 0.1 0.1 1.0</ambient>
+        <diffuse>0.1 0.1 0.1 1.0</diffuse>
+        <specular>0.01 0.01 0.01 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+  <gazebo reference="rear_left_wheel_link">
+    <material>Gazebo/Black</material>
+    <visual>
+      <material>
+        <ambient>0.1 0.1 0.1 1.0</ambient>
+        <diffuse>0.1 0.1 0.1 1.0</diffuse>
+        <specular>0.01 0.01 0.01 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+  <gazebo reference="rear_right_wheel_link">
+    <material>Gazebo/Black</material>
+    <visual>
+      <material>
+        <ambient>0.1 0.1 0.1 1.0</ambient>
+        <diffuse>0.1 0.1 0.1 1.0</diffuse>
+        <specular>0.01 0.01 0.01 1</specular>
+      </material>
+    </visual>
+  </gazebo>
+
+</robot> 
