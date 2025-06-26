@@ -1,0 +1,13 @@
+version: '3'
+services:
+  ros_dev:
+    build: .
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - .:/ros2_ws/src
+    network_mode: host
+    privileged: false
+    command: /bin/bash 
