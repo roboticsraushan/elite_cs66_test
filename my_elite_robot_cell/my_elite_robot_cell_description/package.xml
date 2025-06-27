@@ -3,7 +3,7 @@
 <package format="3">
   <name>my_elite_robot_cell_description</name>
   <version>0.0.1</version>
-  <description>Description package for the mobile cleaning robot with Elite CS66 arm</description>
+  <description>Description package for the Elite CS66 arm robot cell</description>
   <maintainer email="user@todo.todo">user</maintainer>
   <license>Apache-2.0</license>
 
@@ -24,10 +24,7 @@
   <depend>rviz2</depend>
   <depend>eli_cs_robot_description</depend>
   <depend>eli_cs_robot_simulation_gz</depend>
-  <depend>gazebo_ros2_control</depend>
-  <depend>diff_drive_controller</depend>
   <depend>joint_state_broadcaster</depend>
-  <depend>ros2_controllers</depend>
   <depend>controller_manager</depend>
   <depend>ros_gz_sim</depend>
   <depend>ros_gz_bridge</depend>
